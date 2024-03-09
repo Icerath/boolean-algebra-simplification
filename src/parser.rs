@@ -9,10 +9,10 @@ type Error<'a> = ParseErr<'a>;
 type Result<'a, T, E = Error<'a>> = std::result::Result<T, E>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Default, thiserror::Error)]
-#[error("Token Error")]
+#[error("Invalid Token")]
 pub struct TokenError;
 
-#[derive(Logos, Debug, Clone)]
+#[derive(Logos, Debug, Clone, PartialEq, Eq)]
 #[logos(skip "[ \t\r\n]+")]
 #[logos(error = TokenError)]
 pub enum Token {
@@ -30,29 +30,25 @@ pub enum Token {
     OpenParen,
     #[token(")")]
     CloseParen,
+
+    Eof,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ParseErr<'a> {
-    #[error("Token Error")]
+    #[error("{0}")]
     TokenError(#[from] TokenError),
-    #[error("Remaining: {0:?}")]
-    RemainingTokens(&'a str),
+    #[error("Remaining: {remainder:?}")]
+    RemainingTokens { parsed: Gate, remainder: &'a str },
     #[error("Expected `{expected}` Got `{got}`")]
     UnexpectedToken { expected: &'static str, got: Token },
-    #[error("Expected Token: `{0}`")]
-    ExpectedToken(Token),
+
     #[error("Missing token")]
     MissingToken,
 }
 
 pub fn parse(input: &str) -> Result<Gate> {
-    let mut parser = Parser::new(Token::lexer(input));
-    let output = parser.parse()?;
-    match parser.lexer.remainder().trim() {
-        "" => Ok(output),
-        remainder => Err(ParseErr::RemainingTokens(remainder)),
-    }
+    Parser::new(Token::lexer(input)).parse()
 }
 
 struct Parser<'a> {
@@ -65,22 +61,69 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<'a, Gate> {
-        let first = self.parse_atom()?;
+        let parsed = self.parse_root()?;
+        match self.lexer.remainder().trim() {
+            "" => Ok(parsed),
+            remainder => Err(ParseErr::RemainingTokens { parsed, remainder }),
+        }
+    }
 
-        let next = self.lexer.clone().next().transpose()?;
-        Ok(match next {
-            Some(op @ (Token::Or | Token::And | Token::Xor)) => {
-                self.lexer.next();
-                match op {
-                    Token::Or => Gate::Or(Box::new((first, self.parse_atom()?))),
-                    Token::And => Gate::And(Box::new((first, self.parse_atom()?))),
-                    Token::Xor => Gate::Xor(Box::new((first, self.parse_atom()?))),
-                    _ => unreachable!(),
+    fn peek(&mut self) -> std::result::Result<Option<Token>, TokenError> {
+        self.lexer.clone().next().transpose()
+    }
+
+    fn parse_root(&mut self) -> Result<'a, Gate> {
+        let initial = self.parse_xor()?;
+        let mut remainder = vec![];
+        loop {
+            match self.peek()? {
+                Some(Token::Or) => {
+                    self.lexer.next();
+                    remainder.push(self.parse_xor()?);
                 }
-            }
-            Some(Token::CloseParen) | None => first,
-            Some(token) => return Err(ParseErr::UnexpectedToken { expected: "Op", got: token }),
-        })
+                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
+                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
+                }
+                _ => break,
+            };
+        }
+        Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::Or(Box::new((acc, gate)))))
+    }
+
+    fn parse_xor(&mut self) -> Result<'a, Gate> {
+        let initial = self.parse_and()?;
+        let mut remainder = vec![];
+        loop {
+            match self.peek()? {
+                Some(Token::Xor) => {
+                    self.lexer.next();
+                    remainder.push(self.parse_and()?);
+                }
+                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
+                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
+                }
+                _ => break,
+            };
+        }
+        Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::Xor(Box::new((acc, gate)))))
+    }
+
+    fn parse_and(&mut self) -> Result<'a, Gate> {
+        let initial = self.parse_atom()?;
+        let mut remainder = vec![];
+        loop {
+            match self.peek()? {
+                Some(Token::And) => {
+                    self.lexer.next();
+                    remainder.push(self.parse_atom()?);
+                }
+                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
+                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
+                }
+                _ => break,
+            };
+        }
+        Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::And(Box::new((acc, gate)))))
     }
 
     fn parse_atom(&mut self) -> Result<'a, Gate> {
@@ -95,12 +138,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_parens(&mut self) -> Result<'a, Gate> {
-        let gate = self.parse()?;
+        let gate = self.parse_root()?;
 
         match self.lexer.next().transpose()? {
             Some(Token::CloseParen) => Ok(gate),
             Some(token) => Err(ParseErr::UnexpectedToken { expected: ")", got: token }),
-            None => Err(ParseErr::ExpectedToken(Token::CloseParen)),
+            None => Err(ParseErr::UnexpectedToken { expected: ")", got: Token::Eof }),
         }
     }
 }
@@ -110,12 +153,27 @@ impl fmt::Display for Token {
         let str = match self {
             Self::Not => "!",
             Self::And => ".",
-            Self::Or => "|",
+            Self::Or => "+",
             Self::Xor => "^",
             Self::OpenParen => "(",
             Self::CloseParen => ")",
-            Self::Ident(ident) => return write!(f, "`{}`", (b'A' + ident) as char),
+            Self::Ident(ident) => return write!(f, "{}", (b'A' + ident) as char),
+            Self::Eof => "EOF",
         };
         f.write_str(str)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse;
+    use crate::gates::consts::*;
+    #[test]
+    fn test_precedence() {
+        assert_eq!(parse("A+B+C"), Ok(A + B + C));
+        assert_eq!(parse("A+B.C"), Ok(A + B * C));
+        assert_eq!(parse("A.B+C"), Ok(A * B + C));
+        assert_eq!(parse("A.(B+C)"), Ok(A * (B + C)));
+        assert_eq!(parse("(A.B)+C"), Ok((A * B) + C));
     }
 }

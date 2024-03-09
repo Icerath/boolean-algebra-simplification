@@ -3,8 +3,9 @@
 mod gates;
 mod parser;
 
-use crate::parser::parse;
 pub use gates::*;
+
+use crate::parser::parse;
 
 fn main() {
     let Some(input) = std::env::args().nth(1) else {

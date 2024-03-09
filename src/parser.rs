@@ -5,7 +5,7 @@ use crate::Gate;
 type Error = ParseErr;
 type Result<T, E = Error> = std::result::Result<T, E>;
 
-#[derive(Debug, PartialEq, Clone, Default, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, Clone, Default, thiserror::Error)]
 #[error("Token Error")]
 pub struct TokenError;
 
@@ -59,11 +59,8 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Token]) -> Self {
-        Self {
-            tokens,
-            idents: vec![],
-        }
+    pub const fn new(tokens: &'a [Token]) -> Self {
+        Self { tokens, idents: vec![] }
     }
 
     pub fn parse(&mut self) -> Result<Gate> {
@@ -100,6 +97,7 @@ impl<'a> Parser<'a> {
             token => return Err(ParseErr::UnexpectedToken(token.clone())),
         })
     }
+
     fn parse_parens(&mut self) -> Result<Gate> {
         let gate = self.parse()?;
 

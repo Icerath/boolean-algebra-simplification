@@ -20,17 +20,20 @@ impl Gate {
             Self::Xor(gate) => gate.0.compute(val) ^ gate.1.compute(val),
         }
     }
+
     #[must_use]
     pub fn size(&self) -> u32 {
         let mut bits: u32 = 0;
         self.vars(&mut |x| bits |= 1 << x);
         bits.count_ones()
     }
+
     pub fn unique_vars(&self) -> impl Iterator<Item = u8> {
         let mut bits: u32 = 0;
         self.vars(&mut |x| bits |= 1 << x);
         (0..32).filter(move |index| ((bits >> index) & 1) == 1)
     }
+
     pub fn vars(&self, with: &mut impl FnMut(u32)) {
         match self {
             Self::Is(index) => with(*index),
@@ -41,6 +44,7 @@ impl Gate {
             }
         }
     }
+
     pub fn print_table(&self) {
         let vars = self.unique_vars().collect::<Vec<_>>();
         let width = vars.len();
@@ -49,14 +53,11 @@ impl Gate {
         }
         println!();
         for i in 0..2u32.pow(width as u32) {
-            let bits = format!("{i:0width$b}")
-                .chars()
-                .rev()
-                .flat_map(|c| [c, ' '])
-                .collect::<String>();
+            let bits = format!("{i:0width$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
             println!("{bits} {}", u32::from(self.compute(i)));
         }
     }
+
     #[must_use]
     pub fn count_ones(&self) -> u32 {
         let mut num = 0;
@@ -68,9 +69,10 @@ impl Gate {
 }
 
 impl std::ops::Not for Gate {
-    type Output = Gate;
+    type Output = Self;
+
     fn not(self) -> Self::Output {
-        Gate::Not(Box::new(self))
+        Self::Not(Box::new(self))
     }
 }
 
@@ -78,6 +80,7 @@ macro_rules! impl_op {
     ($gate:tt, $op:tt, $func:tt) => {
         impl $op for Gate {
             type Output = Self;
+
             fn $func(self, rhs: Self) -> Self {
                 Self::$gate(Box::new((self, rhs)))
             }

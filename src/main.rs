@@ -3,14 +3,23 @@
 mod gates;
 mod parser;
 
+use std::process::ExitCode;
+
 pub use gates::*;
 
 use crate::parser::parse;
 
-fn main() {
+fn main() -> ExitCode {
     let Some(input) = std::env::args().nth(1) else {
-        return;
+        return ExitCode::FAILURE;
     };
-    let tree = parse(&input).unwrap_or_else(|err| panic!("{err}"));
+    let tree = match parse(&input) {
+        Ok(tree) => tree,
+        Err(err) => {
+            eprintln!("{err}");
+            return ExitCode::FAILURE;
+        }
+    };
     tree.print_table();
+    ExitCode::SUCCESS
 }

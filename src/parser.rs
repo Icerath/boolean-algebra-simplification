@@ -1,3 +1,5 @@
+use std::fmt;
+
 use logos::Logos;
 
 use crate::Gate;
@@ -18,7 +20,7 @@ pub enum Token<'a> {
     Ident(&'a str),
     #[token("!")]
     Not,
-    #[token(r"+")]
+    #[token("+")]
     Or,
     #[token(".")]
     And,
@@ -34,11 +36,11 @@ pub enum Token<'a> {
 pub enum ParseErr<'a> {
     #[error("Token Error")]
     TokenError(#[from] TokenError),
-    #[error("Remaining tokens: `{0:?}`")]
-    RemainingTokens(Vec<Token<'a>>),
-    #[error("Unexpected Token: `{0:?}`")]
-    UnexpectedToken(Token<'a>),
-    #[error("Expected Token: `{0:?}`")]
+    #[error("Remaining: {0:?}")]
+    RemainingTokens(&'a str),
+    #[error("Expected `{expected}` Got `{got}`")]
+    UnexpectedToken { expected: &'static str, got: Token<'a> },
+    #[error("Expected Token: `{0}`")]
     ExpectedToken(Token<'a>),
     #[error("Missing token")]
     MissingToken,
@@ -47,10 +49,10 @@ pub enum ParseErr<'a> {
 pub fn parse(input: &str) -> Result<Gate> {
     let mut parser = Parser::new(Token::lexer(input));
     let output = parser.parse()?;
-    if !parser.lexer.remainder().is_empty() {
-        return Err(ParseErr::RemainingTokens(parser.lexer.collect::<Result<_, _>>()?));
+    match parser.lexer.remainder().trim() {
+        "" => Ok(output),
+        remainder => Err(ParseErr::RemainingTokens(remainder)),
     }
-    Ok(output)
 }
 
 struct Parser<'a> {
@@ -88,7 +90,7 @@ impl<'a> Parser<'a> {
             }
             Token::OpenParen => self.parse_parens()?,
             Token::Not => self.parse_atom().map(|gate| Gate::Not(Box::new(gate)))?,
-            token => return Err(ParseErr::UnexpectedToken(token)),
+            token => return Err(ParseErr::UnexpectedToken { expected: "Expression", got: token }),
         })
     }
 
@@ -97,8 +99,23 @@ impl<'a> Parser<'a> {
 
         match self.lexer.next().transpose()? {
             Some(Token::CloseParen) => Ok(gate),
-            Some(token) => Err(ParseErr::UnexpectedToken(token)),
+            Some(token) => Err(ParseErr::UnexpectedToken { expected: ")", got: token }),
             None => Err(ParseErr::ExpectedToken(Token::CloseParen)),
         }
+    }
+}
+
+impl<'a> fmt::Display for Token<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let str = match self {
+            Self::Not => "!",
+            Self::And => ".",
+            Self::Or => "|",
+            Self::Xor => "^",
+            Self::OpenParen => "(",
+            Self::CloseParen => ")",
+            Self::Ident(ident) => return write!(f, "Ident: `{ident}`"),
+        };
+        f.write_str(str)
     }
 }

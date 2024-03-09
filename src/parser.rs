@@ -1,4 +1,4 @@
-use logos::Logos;
+use logos::{Lexer, Logos};
 
 use crate::Gate;
 
@@ -44,29 +44,28 @@ pub enum ParseErr {
 }
 
 pub fn parse(input: &str) -> Result<Gate> {
-    let tokens = Token::lexer(input).collect::<Result<Vec<Token>, TokenError>>()?;
-    let mut parser = Parser::new(&tokens);
+    let mut parser = Parser::new(Token::lexer(input));
     let output = parser.parse()?;
-    if !parser.tokens.is_empty() {
-        return Err(ParseErr::RemainingTokens(parser.tokens.to_vec()));
+    if !parser.lexer.remainder().is_empty() {
+        return Err(ParseErr::RemainingTokens(parser.lexer.collect::<Result<_, _>>()?));
     }
     Ok(output)
 }
 
 struct Parser<'a> {
-    tokens: &'a [Token],
-    idents: Vec<&'a str>,
+    lexer: Lexer<'a, Token>,
+    idents: Vec<Box<str>>,
 }
 
 impl<'a> Parser<'a> {
-    pub const fn new(tokens: &'a [Token]) -> Self {
-        Self { tokens, idents: vec![] }
+    pub const fn new(lexer: Lexer<'a, Token>) -> Self {
+        Self { lexer, idents: vec![] }
     }
 
     pub fn parse(&mut self) -> Result<Gate> {
         let first = self.parse_atom()?;
 
-        Ok(match self.bump() {
+        Ok(match self.lexer.next().transpose()? {
             Some(Token::Or) => Gate::Or(Box::new((first, self.parse_atom()?))),
             Some(Token::And) => Gate::And(Box::new((first, self.parse_atom()?))),
             Some(Token::Xor) => Gate::Xor(Box::new((first, self.parse_atom()?))),
@@ -74,18 +73,12 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn bump(&mut self) -> Option<&'a Token> {
-        let token = self.tokens.first()?;
-        self.tokens = &self.tokens[1..];
-        Some(token)
-    }
-
     fn parse_atom(&mut self) -> Result<Gate> {
-        let first = self.bump().ok_or(ParseErr::MissingToken)?;
+        let first = self.lexer.next().ok_or(ParseErr::MissingToken)??;
 
         Ok(match first {
             Token::Ident(ident) => {
-                if let Some(index) = self.idents.iter().position(|&i| &**ident == i) {
+                if let Some(index) = self.idents.iter().position(|i| &ident == i) {
                     Gate::Is(index as u32)
                 } else {
                     self.idents.push(ident);
@@ -94,16 +87,16 @@ impl<'a> Parser<'a> {
             }
             Token::OpenParen => self.parse_parens()?,
             Token::Not => self.parse_atom().map(|gate| Gate::Not(Box::new(gate)))?,
-            token => return Err(ParseErr::UnexpectedToken(token.clone())),
+            token => return Err(ParseErr::UnexpectedToken(token)),
         })
     }
 
     fn parse_parens(&mut self) -> Result<Gate> {
         let gate = self.parse()?;
 
-        match self.bump() {
+        match self.lexer.next().transpose()? {
             Some(Token::CloseParen) => Ok(gate),
-            Some(token) => Err(ParseErr::UnexpectedToken(token.clone())),
+            Some(token) => Err(ParseErr::UnexpectedToken(token)),
             None => Err(ParseErr::ExpectedToken(Token::CloseParen)),
         }
     }

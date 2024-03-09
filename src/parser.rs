@@ -4,7 +4,7 @@ use logos::Logos;
 
 use crate::Gate;
 
-type Lexer<'a> = logos::Lexer<'a, Token<'a>>;
+type Lexer<'a> = logos::Lexer<'a, Token>;
 type Error<'a> = ParseErr<'a>;
 type Result<'a, T, E = Error<'a>> = std::result::Result<T, E>;
 
@@ -15,9 +15,9 @@ pub struct TokenError;
 #[derive(Logos, Debug, Clone)]
 #[logos(skip "[ \t\r\n]+")]
 #[logos(error = TokenError)]
-pub enum Token<'a> {
-    #[regex(r"\w")]
-    Ident(&'a str),
+pub enum Token {
+    #[regex(r"[A-Za-z]", |s| s.slice().as_bytes()[0].to_ascii_uppercase() - b'A')]
+    Ident(u8),
     #[token("!")]
     Not,
     #[token("+")]
@@ -39,9 +39,9 @@ pub enum ParseErr<'a> {
     #[error("Remaining: {0:?}")]
     RemainingTokens(&'a str),
     #[error("Expected `{expected}` Got `{got}`")]
-    UnexpectedToken { expected: &'static str, got: Token<'a> },
+    UnexpectedToken { expected: &'static str, got: Token },
     #[error("Expected Token: `{0}`")]
-    ExpectedToken(Token<'a>),
+    ExpectedToken(Token),
     #[error("Missing token")]
     MissingToken,
 }
@@ -57,22 +57,29 @@ pub fn parse(input: &str) -> Result<Gate> {
 
 struct Parser<'a> {
     lexer: Lexer<'a>,
-    idents: Vec<&'a str>,
 }
 
 impl<'a> Parser<'a> {
     pub const fn new(lexer: Lexer<'a>) -> Self {
-        Self { lexer, idents: vec![] }
+        Self { lexer }
     }
 
     pub fn parse(&mut self) -> Result<'a, Gate> {
         let first = self.parse_atom()?;
 
-        Ok(match self.lexer.next().transpose()? {
-            Some(Token::Or) => Gate::Or(Box::new((first, self.parse_atom()?))),
-            Some(Token::And) => Gate::And(Box::new((first, self.parse_atom()?))),
-            Some(Token::Xor) => Gate::Xor(Box::new((first, self.parse_atom()?))),
-            Some(_) | None => first,
+        let next = self.lexer.clone().next().transpose()?;
+        Ok(match next {
+            Some(op @ (Token::Or | Token::And | Token::Xor)) => {
+                self.lexer.next();
+                match op {
+                    Token::Or => Gate::Or(Box::new((first, self.parse_atom()?))),
+                    Token::And => Gate::And(Box::new((first, self.parse_atom()?))),
+                    Token::Xor => Gate::Xor(Box::new((first, self.parse_atom()?))),
+                    _ => unreachable!(),
+                }
+            }
+            Some(Token::CloseParen) | None => first,
+            Some(token) => return Err(ParseErr::UnexpectedToken { expected: "Op", got: token }),
         })
     }
 
@@ -80,14 +87,7 @@ impl<'a> Parser<'a> {
         let first = self.lexer.next().ok_or(ParseErr::MissingToken)??;
 
         Ok(match first {
-            Token::Ident(ident) => {
-                if let Some(index) = self.idents.iter().position(|i| &ident == i) {
-                    Gate::Is(index as u32)
-                } else {
-                    self.idents.push(ident);
-                    Gate::Is(self.idents.len() as u32 - 1)
-                }
-            }
+            Token::Ident(ident) => Gate::Is(ident),
             Token::OpenParen => self.parse_parens()?,
             Token::Not => self.parse_atom().map(|gate| Gate::Not(Box::new(gate)))?,
             token => return Err(ParseErr::UnexpectedToken { expected: "Expression", got: token }),
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-impl<'a> fmt::Display for Token<'a> {
+impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let str = match self {
             Self::Not => "!",
@@ -114,7 +114,7 @@ impl<'a> fmt::Display for Token<'a> {
             Self::Xor => "^",
             Self::OpenParen => "(",
             Self::CloseParen => ")",
-            Self::Ident(ident) => return write!(f, "Ident: `{ident}`"),
+            Self::Ident(ident) => return write!(f, "`{}`", (b'A' + ident) as char),
         };
         f.write_str(str)
     }

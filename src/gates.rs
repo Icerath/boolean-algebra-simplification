@@ -2,7 +2,7 @@ use std::ops::{Add, BitAnd, BitOr, BitXor, Mul};
 
 #[derive(Debug)]
 pub enum Gate {
-    Is(u32),
+    Is(u8),
     Not(Box<Gate>),
     And(Box<(Gate, Gate)>),
     Or(Box<(Gate, Gate)>),
@@ -36,7 +36,7 @@ impl Gate {
 
     pub fn vars(&self, with: &mut impl FnMut(u32)) {
         match self {
-            Self::Is(index) => with(*index),
+            Self::Is(index) => with(*index as u32),
             Self::Not(gate) => gate.vars(with),
             Self::And(gate) | Self::Or(gate) | Self::Xor(gate) => {
                 gate.0.vars(with);
@@ -46,13 +46,13 @@ impl Gate {
     }
 
     pub fn print_table(&self) {
-        let vars = self.unique_vars().collect::<Vec<_>>();
-        let width = vars.len();
-        for var in &vars {
+        let width = self.size();
+        for var in self.unique_vars() {
             print!("{} ", (b'A' + var) as char);
         }
         println!();
-        for i in 0..2u32.pow(width as u32) {
+        for i in 0..2u32.pow(width) {
+            let width = width as usize;
             let bits = format!("{i:0width$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
             println!("{bits} {}", u32::from(self.compute(i)));
         }

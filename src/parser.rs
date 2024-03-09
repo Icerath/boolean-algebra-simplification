@@ -1,9 +1,10 @@
-use logos::{Lexer, Logos};
+use logos::Logos;
 
 use crate::Gate;
 
-type Error = ParseErr;
-type Result<T, E = Error> = std::result::Result<T, E>;
+type Lexer<'a> = logos::Lexer<'a, Token<'a>>;
+type Error<'a> = ParseErr<'a>;
+type Result<'a, T, E = Error<'a>> = std::result::Result<T, E>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Default, thiserror::Error)]
 #[error("Token Error")]
@@ -12,9 +13,9 @@ pub struct TokenError;
 #[derive(Logos, Debug, Clone)]
 #[logos(skip "[ \t\r\n]+")]
 #[logos(error = TokenError)]
-pub enum Token {
-    #[regex(r"\w", |str| { Ok::<Box::<str>, TokenError>(From::from(str.slice())) })]
-    Ident(Box<str>),
+pub enum Token<'a> {
+    #[regex(r"\w")]
+    Ident(&'a str),
     #[token("!")]
     Not,
     #[token(r"+")]
@@ -30,15 +31,15 @@ pub enum Token {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ParseErr {
+pub enum ParseErr<'a> {
     #[error("Token Error")]
     TokenError(#[from] TokenError),
     #[error("Remaining tokens: `{0:?}`")]
-    RemainingTokens(Vec<Token>),
+    RemainingTokens(Vec<Token<'a>>),
     #[error("Unexpected Token: `{0:?}`")]
-    UnexpectedToken(Token),
+    UnexpectedToken(Token<'a>),
     #[error("Expected Token: `{0:?}`")]
-    ExpectedToken(Token),
+    ExpectedToken(Token<'a>),
     #[error("Missing token")]
     MissingToken,
 }
@@ -53,16 +54,16 @@ pub fn parse(input: &str) -> Result<Gate> {
 }
 
 struct Parser<'a> {
-    lexer: Lexer<'a, Token>,
-    idents: Vec<Box<str>>,
+    lexer: Lexer<'a>,
+    idents: Vec<&'a str>,
 }
 
 impl<'a> Parser<'a> {
-    pub const fn new(lexer: Lexer<'a, Token>) -> Self {
+    pub const fn new(lexer: Lexer<'a>) -> Self {
         Self { lexer, idents: vec![] }
     }
 
-    pub fn parse(&mut self) -> Result<Gate> {
+    pub fn parse(&mut self) -> Result<'a, Gate> {
         let first = self.parse_atom()?;
 
         Ok(match self.lexer.next().transpose()? {
@@ -73,7 +74,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_atom(&mut self) -> Result<Gate> {
+    fn parse_atom(&mut self) -> Result<'a, Gate> {
         let first = self.lexer.next().ok_or(ParseErr::MissingToken)??;
 
         Ok(match first {
@@ -91,7 +92,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_parens(&mut self) -> Result<Gate> {
+    fn parse_parens(&mut self) -> Result<'a, Gate> {
         let gate = self.parse()?;
 
         match self.lexer.next().transpose()? {

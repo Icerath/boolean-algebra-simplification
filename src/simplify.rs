@@ -69,10 +69,10 @@ macro_rules! test_simplified {
     ($lhs:expr, $rhs:expr) => {
         let mut lhs = crate::parse($lhs).unwrap();
         let rhs = crate::parse($rhs).unwrap();
-        assert!(lhs.equal(&rhs), "Expected truth table differs from input");
+        assert!(lhs.equal_truth_tables(&rhs), "Expected truth table differs from input");
         lhs.simplify();
         assert!(lhs == rhs, "`{lhs}` != `{rhs}`");
-        assert!(lhs.equal(&rhs), "truth tables did not match");
+        assert!(lhs.equal_truth_tables(&rhs), "truth tables did not match");
     };
 }
 

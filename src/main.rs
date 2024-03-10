@@ -29,6 +29,6 @@ fn main() -> Result<(), String> {
     }
     println!("old = {og_tree}");
     println!("new = {new_tree}");
-    assert!(og_tree.equal(&new_tree));
+    assert!(og_tree.equal_truth_tables(&new_tree));
     Ok(())
 }

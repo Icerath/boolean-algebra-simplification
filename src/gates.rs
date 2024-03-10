@@ -86,7 +86,7 @@ impl Gate {
     }
 
     #[must_use]
-    pub fn equal(&self, other: &Self) -> bool {
+    pub fn equal_truth_tables(&self, other: &Self) -> bool {
         let (lhs_size, rhs_size) = (self.size(), other.size());
         if lhs_size < rhs_size {
             return false;

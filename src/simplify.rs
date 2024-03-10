@@ -1,5 +1,4 @@
 use crate::Gate;
-
 macro_rules! replace {
     ($root:ident, $new:expr) => {{
         let new = std::mem::replace($new, Gate::Is(0));
@@ -59,8 +58,8 @@ pub fn simplify(root: &mut Gate) {
 #[cfg(test)]
 macro_rules! test_simplified {
     ($lhs:expr, $rhs:expr) => {
-        let mut lhs = $lhs;
-        let rhs = $rhs;
+        let mut lhs = crate::parse($lhs).unwrap();
+        let rhs = crate::parse($rhs).unwrap();
         lhs.simplify();
         assert_eq!(lhs, rhs);
         assert!(lhs.equal(&rhs));
@@ -70,21 +69,17 @@ macro_rules! test_simplified {
 #[allow(clippy::cognitive_complexity)]
 #[test]
 fn test_simplification() {
-    use Gate::Literal;
-
-    use crate::gates::consts::*;
-
-    test_simplified!(A + B, A + B);
-    test_simplified!(A + Literal(false), A);
-    test_simplified!(A + Literal(true), Literal(true));
-    test_simplified!(A & Literal(false), Literal(false));
-    test_simplified!(A & Literal(true), A);
-    test_simplified!(A + A, A);
-    test_simplified!(!A + A, Literal(true));
-    test_simplified!(A & A, A);
-    test_simplified!(!A & A, Literal(false));
-    test_simplified!(!!A, A);
-    test_simplified!((A & B) + A, A);
-    test_simplified!(A + (!A & B), A + B);
-    test_simplified!((A + B) & (A + C), A + (B & C));
+    test_simplified!("A+B", "A+B");
+    test_simplified!("A+0", "A");
+    test_simplified!("A+1", "1");
+    test_simplified!("A.0", "0");
+    test_simplified!("A.1", "A");
+    test_simplified!("A+A", "A");
+    test_simplified!("!A+A", "1");
+    test_simplified!("A.A", "A");
+    test_simplified!("!A.A", "0");
+    test_simplified!("!!A", "A");
+    test_simplified!("AB + A", "A");
+    test_simplified!("A+(!AB)", "A+B");
+    test_simplified!("(A+B)(A+C)", "A+BC");
 }

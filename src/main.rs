@@ -23,7 +23,9 @@ fn main() -> Result<(), String> {
     new_tree.simplify();
     if args.truth_table {
         og_tree.print_table();
-        new_tree.print_table();
+        if og_tree.size() != new_tree.size() {
+            new_tree.print_table();
+        }
     }
     println!("old = {og_tree}");
     println!("new = {new_tree}");

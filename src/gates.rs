@@ -101,8 +101,16 @@ impl Gate {
     }
 
     pub fn print_table(&self) {
-        let width = self.size();
-        for _ in 0..=width + 1 {
+        let size = self.size();
+
+        if size == 0 {
+            println!("---");
+            println!("|{}|", u32::from(self.compute(0)));
+            println!("---");
+            return;
+        }
+
+        for _ in 0..=size + 1 {
             print!("--");
         }
         println!();
@@ -113,11 +121,11 @@ impl Gate {
         print!("  |");
         println!();
         for (i, j) in (0..).zip(self.truth_table_keys()) {
-            let width = width as usize;
-            let bits = format!("{i:0width$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
+            let size = size as usize;
+            let bits = format!("{i:0size$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
             println!("|{bits} {}|", u32::from(self.compute(j)));
         }
-        for _ in 0..=width + 1 {
+        for _ in 0..=size + 1 {
             print!("--");
         }
         println!();

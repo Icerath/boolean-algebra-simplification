@@ -1,4 +1,4 @@
-use std::fmt;
+use std::fmt::{self};
 
 use logos::Logos;
 
@@ -30,6 +30,9 @@ pub enum Token {
     OpenParen,
     #[token(")")]
     CloseParen,
+    #[token("1", |_| true)]
+    #[token("0", |_| false)]
+    Literal(bool),
 
     Eof,
 }
@@ -130,6 +133,7 @@ impl<'a> Parser<'a> {
         let first = self.lexer.next().ok_or(ParseErr::MissingToken)??;
 
         Ok(match first {
+            Token::Literal(bool) => Gate::Literal(bool),
             Token::Ident(ident) => Gate::Is(ident),
             Token::OpenParen => self.parse_parens()?,
             Token::Not => self.parse_atom().map(|gate| Gate::Not(Box::new(gate)))?,
@@ -157,6 +161,7 @@ impl fmt::Display for Token {
             Self::Xor => "^",
             Self::OpenParen => "(",
             Self::CloseParen => ")",
+            Self::Literal(bool) => return write!(f, "{}", *bool as u8),
             Self::Ident(ident) => return write!(f, "{}", (b'A' + ident) as char),
             Self::Eof => "EOF",
         };

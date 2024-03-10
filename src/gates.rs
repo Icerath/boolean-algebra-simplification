@@ -1,7 +1,11 @@
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul};
+use std::{
+    fmt::{self, Write},
+    ops::{Add, BitAnd, BitOr, BitXor, Mul},
+};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Gate {
+    Literal(bool),
     Is(u8),
     Not(Box<Gate>),
     And(Box<(Gate, Gate)>),
@@ -13,12 +17,25 @@ impl Gate {
     #[must_use]
     pub fn compute(&self, val: u32) -> bool {
         match self {
+            Self::Literal(bool) => *bool,
             Self::Is(index) => ((val >> index) & 1) == 1,
             Self::Not(gate) => !gate.compute(val),
             Self::And(gate) => gate.0.compute(val) && gate.1.compute(val),
             Self::Or(gate) => gate.0.compute(val) || gate.1.compute(val),
             Self::Xor(gate) => gate.0.compute(val) ^ gate.1.compute(val),
         }
+    }
+
+    pub fn map(&mut self, predicate: &mut impl FnMut(&mut Self)) {
+        match self {
+            Self::And(gates) | Self::Or(gates) | Self::Xor(gates) => {
+                predicate(&mut gates.0);
+                predicate(&mut gates.1);
+            }
+            Self::Not(gate) => gate.map(predicate),
+            Self::Is(_) | Self::Literal(_) => {}
+        }
+        predicate(self);
     }
 
     #[must_use]
@@ -36,6 +53,7 @@ impl Gate {
 
     pub fn vars(&self, with: &mut impl FnMut(u32)) {
         match self {
+            Self::Literal(_) => {}
             Self::Is(index) => with(*index as u32),
             Self::Not(gate) => gate.vars(with),
             Self::And(gate) | Self::Or(gate) | Self::Xor(gate) => {
@@ -43,6 +61,20 @@ impl Gate {
                 gate.1.vars(with);
             }
         }
+    }
+
+    #[must_use]
+    pub fn equal(&self, other: &Self) -> bool {
+        let size = self.size();
+        if size < other.size() {
+            return false;
+        }
+        for val in 0..2u32.pow(size) {
+            if self.compute(val) != other.compute(val) {
+                return false;
+            }
+        }
+        true
     }
 
     pub fn print_table(&self) {
@@ -122,4 +154,17 @@ pub mod consts {
     pub const X: Gate = Gate::Is(23);
     pub const Y: Gate = Gate::Is(24);
     pub const Z: Gate = Gate::Is(25);
+}
+
+impl fmt::Display for Gate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Literal(bool) => write!(f, "{}", *bool as u8),
+            Self::Not(gate) => write!(f, "!{gate}"),
+            Self::And(gate) => write!(f, "({}.{})", gate.0, gate.1),
+            Self::Or(gate) => write!(f, "({}+{})", gate.0, gate.1),
+            Self::Xor(gate) => write!(f, "({}^{})", gate.0, gate.1),
+            Self::Is(index) => f.write_char((b'A' + index) as char),
+        }
+    }
 }

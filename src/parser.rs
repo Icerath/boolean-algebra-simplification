@@ -45,9 +45,6 @@ pub enum ParseErr<'a> {
     RemainingTokens { parsed: Gate, remainder: &'a str },
     #[error("Expected `{expected}` Got `{got}`")]
     UnexpectedToken { expected: &'static str, got: Token },
-
-    #[error("Missing token")]
-    MissingToken,
 }
 
 pub fn parse(input: &str) -> Result<Gate> {
@@ -115,7 +112,8 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_atom(&mut self) -> Result<'a, Gate> {
-        let first = self.lexer.next().ok_or(ParseErr::MissingToken)??;
+        let first =
+            self.lexer.next().ok_or(ParseErr::UnexpectedToken { expected: "Expression", got: Token::Eof })??;
 
         Ok(match first {
             Token::Literal(bool) => Gate::Literal(bool),

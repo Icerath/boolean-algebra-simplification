@@ -78,17 +78,9 @@ impl<'a> Parser<'a> {
     fn parse_root(&mut self) -> Result<'a, Gate> {
         let initial = self.parse_xor()?;
         let mut remainder = vec![];
-        loop {
-            match self.peek()? {
-                Some(Token::Or) => {
-                    self.lexer.next();
-                    remainder.push(self.parse_xor()?);
-                }
-                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
-                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
-                }
-                _ => break,
-            };
+        while self.peek()? == Some(Token::Or) {
+            self.lexer.next();
+            remainder.push(self.parse_xor()?);
         }
         Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::Or(Box::new((acc, gate)))))
     }
@@ -96,37 +88,31 @@ impl<'a> Parser<'a> {
     fn parse_xor(&mut self) -> Result<'a, Gate> {
         let initial = self.parse_and()?;
         let mut remainder = vec![];
-        loop {
-            match self.peek()? {
-                Some(Token::Xor) => {
-                    self.lexer.next();
-                    remainder.push(self.parse_and()?);
-                }
-                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
-                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
-                }
-                _ => break,
-            };
+        while self.peek()? == Some(Token::Xor) {
+            self.lexer.next();
+            remainder.push(self.parse_and()?);
         }
         Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::Xor(Box::new((acc, gate)))))
     }
 
     fn parse_and(&mut self) -> Result<'a, Gate> {
-        let initial = self.parse_atom()?;
+        let initial = self.parse_pair()?;
         let mut remainder = vec![];
-        loop {
-            match self.peek()? {
-                Some(Token::And) => {
-                    self.lexer.next();
-                    remainder.push(self.parse_atom()?);
-                }
-                Some(token @ (Token::Ident(_) | Token::OpenParen)) => {
-                    return Err(ParseErr::UnexpectedToken { expected: "Op", got: token })
-                }
-                _ => break,
-            };
+        while self.peek()? == Some(Token::And) {
+            self.lexer.next();
+            remainder.push(self.parse_pair()?);
         }
         Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::And(Box::new((acc, gate)))))
+    }
+
+    fn parse_pair(&mut self) -> Result<'a, Gate> {
+        let lhs = self.parse_atom()?;
+        match self.peek()? {
+            Some(Token::Ident(_) | Token::OpenParen | Token::Literal(_)) => {
+                Ok(Gate::And(Box::new((lhs, self.parse_atom()?))))
+            }
+            Some(_) | None => Ok(lhs),
+        }
     }
 
     fn parse_atom(&mut self) -> Result<'a, Gate> {
@@ -181,4 +167,5 @@ fn test_precedence() {
     assert_eq!(parse("A+B.C^D"), Ok(A | B & C ^ D));
     assert_eq!(parse("A.B^C+D"), Ok(A & B ^ C | D));
     assert_eq!(parse("A^B+C.D"), Ok(A ^ B | C & D));
+    assert_eq!(parse("A^B+C.(DE)"), Ok(A ^ B | C & (D & E)));
 }

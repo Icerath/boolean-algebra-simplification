@@ -79,13 +79,25 @@ impl Gate {
         }
     }
 
+    fn truth_table_keys(&self) -> impl Iterator<Item = u32> + '_ {
+        let size = self.size();
+        (0..2u32.pow(size)).map(move |val| {
+            let mut new_val = 0;
+            for (i, c) in self.unique_vars().enumerate() {
+                let bit_at_i = (val & (1 << i)) >> i;
+                new_val |= bit_at_i << c;
+            }
+            new_val
+        })
+    }
+
     #[must_use]
     pub fn equal(&self, other: &Self) -> bool {
         let (lhs_size, rhs_size) = (self.size(), other.size());
         if lhs_size < rhs_size {
             return false;
         }
-        (0..2u32.pow(lhs_size.max(rhs_size))).all(|val| self.compute(val) == other.compute(val))
+        self.truth_table_keys().all(|val| self.compute(val) == other.compute(val))
     }
 
     pub fn print_table(&self) {
@@ -100,10 +112,10 @@ impl Gate {
         }
         print!("  |");
         println!();
-        for i in 0..2u32.pow(width) {
+        for (i, j) in (0..).zip(self.truth_table_keys()) {
             let width = width as usize;
             let bits = format!("{i:0width$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
-            println!("|{bits} {}|", u32::from(self.compute(i)));
+            println!("|{bits} {}|", u32::from(self.compute(j)));
         }
         for _ in 0..=width + 1 {
             print!("--");
@@ -114,7 +126,7 @@ impl Gate {
     #[must_use]
     pub fn count_ones(&self) -> u32 {
         let mut num = 0;
-        for i in 0..2u32.pow(self.size()) {
+        for i in self.truth_table_keys() {
             num += u32::from(self.compute(i));
         }
         num

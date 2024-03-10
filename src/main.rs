@@ -20,10 +20,11 @@ fn main() -> Result<(), String> {
     let args = <Args as clap::Parser>::parse();
     let og_tree = parse(&args.input).map_err(|err| err.to_string())?;
     let mut new_tree = og_tree.clone();
+    new_tree.simplify();
     if args.truth_table {
         og_tree.print_table();
+        new_tree.print_table();
     }
-    new_tree.simplify();
     println!("old = {og_tree}");
     println!("new = {new_tree}");
     assert!(og_tree.equal(&new_tree));

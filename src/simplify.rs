@@ -28,7 +28,7 @@ impl Gate {
 }
 
 pub fn simplify(root: &mut Gate) {
-    use Gate::{And, Literal, Not, Or};
+    use Gate::{And, Literal, Not, Or, Xor};
     match root {
         Not(box Literal(bool)) => *root = Literal(!*bool),
         //
@@ -53,6 +53,11 @@ pub fn simplify(root: &mut Gate) {
             let mut new = a1.clone() + (b.clone() & c.clone());
             replace!(root, &mut new);
         }
+        // Some added ones for xor
+        Xor(box (lhs, rhs)) if lhs == rhs => set!(root, 0),
+        Xor(box (Not(box lhs), rhs)) if lhs == rhs => set!(root, 1),
+        Xor(box (a, Literal(true))) => replace!(root, &mut !a.clone()),
+        Xor(box (a, Literal(false))) => replace!(root, a),
         _ => {}
     }
 }
@@ -62,9 +67,10 @@ macro_rules! test_simplified {
     ($lhs:expr, $rhs:expr) => {
         let mut lhs = crate::parse($lhs).unwrap();
         let rhs = crate::parse($rhs).unwrap();
+        assert!(lhs.equal(&rhs), "Expected truth table differs from input");
         lhs.simplify();
         assert_eq!(lhs, rhs);
-        assert!(lhs.equal(&rhs));
+        assert!(lhs.equal(&rhs), "truth tables did not match");
     };
 }
 
@@ -82,6 +88,10 @@ fn test_simplification() {
     test_simplified!("!A+A", "1");
     test_simplified!("A.A", "A");
     test_simplified!("!A.A", "0");
+    test_simplified!("A^A", "0");
+    test_simplified!("A^!A", "1");
+    test_simplified!("A^1", "!A");
+    test_simplified!("A^0", "A");
     test_simplified!("!!A", "A");
     test_simplified!("AB + A", "A");
     test_simplified!("A+(!AB)", "A+B");

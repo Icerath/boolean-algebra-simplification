@@ -30,6 +30,8 @@ impl Gate {
 pub fn simplify(root: &mut Gate) {
     use Gate::{And, Literal, Not, Or};
     match root {
+        Not(box Literal(bool)) => *root = Literal(!*bool),
+        //
         Not(box Not(box gate)) => replace!(root, gate),
         // Identity Law
         And(box (Literal(true), other)) | Or(box (Literal(false), other)) => replace!(root, other),
@@ -70,6 +72,8 @@ macro_rules! test_simplified {
 #[test]
 fn test_simplification() {
     test_simplified!("A+B", "A+B");
+    test_simplified!("!0", "1");
+    test_simplified!("!1", "0");
     test_simplified!("A+0", "A");
     test_simplified!("A+1", "1");
     test_simplified!("A.0", "0");

@@ -202,7 +202,7 @@ impl fmt::Display for Gate {
         match self {
             Self::Literal(bool) => write!(f, "{}", *bool as u8),
             Self::Not(gate) => write!(f, "!{gate}"),
-            Self::And(gate) => write!(f, "({}.{})", gate.0, gate.1),
+            Self::And(gate) => write!(f, "({}{})", gate.0, gate.1),
             Self::Or(gate) => write!(f, "({}+{})", gate.0, gate.1),
             Self::Xor(gate) => write!(f, "({}^{})", gate.0, gate.1),
             Self::Is(index) => f.write_char((b'A' + index) as char),

@@ -169,20 +169,16 @@ impl fmt::Display for Token {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::parse;
+#[test]
+#[allow(clippy::precedence)]
+fn test_precedence() {
     use crate::gates::consts::*;
-    #[test]
-    #[allow(clippy::precedence)]
-    fn test_precedence() {
-        assert_eq!(parse("A+B+C"), Ok(A | B | C));
-        assert_eq!(parse("A+B.C"), Ok(A | B & C));
-        assert_eq!(parse("A.B+C"), Ok(A & B | C));
-        assert_eq!(parse("A.(B+C)"), Ok(A & (B | C)));
-        assert_eq!(parse("(A.B)+C"), Ok((A & B) | C));
-        assert_eq!(parse("A+B.C^D"), Ok(A | B & C ^ D));
-        assert_eq!(parse("A.B^C+D"), Ok(A & B ^ C | D));
-        assert_eq!(parse("A^B+C.D"), Ok(A ^ B | C & D));
-    }
+    assert_eq!(parse("A+B+C"), Ok(A | B | C));
+    assert_eq!(parse("A+B.C"), Ok(A | B & C));
+    assert_eq!(parse("A.B+C"), Ok(A & B | C));
+    assert_eq!(parse("A.(B+C)"), Ok(A & (B | C)));
+    assert_eq!(parse("(A.B)+C"), Ok((A & B) | C));
+    assert_eq!(parse("A+B.C^D"), Ok(A | B & C ^ D));
+    assert_eq!(parse("A.B^C+D"), Ok(A & B ^ C | D));
+    assert_eq!(parse("A^B+C.D"), Ok(A ^ B | C & D));
 }

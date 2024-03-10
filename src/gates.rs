@@ -3,7 +3,7 @@ use std::{
     ops::{Add, BitAnd, BitOr, BitXor, Mul},
 };
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Gate {
     Literal(bool),
     Is(u8),
@@ -36,6 +36,22 @@ impl Gate {
             Self::Is(_) | Self::Literal(_) => {}
         }
         predicate(self);
+    }
+
+    pub fn reverse(&mut self, depth: Option<u8>) {
+        if depth == Some(0) {
+            return;
+        }
+
+        match self {
+            Self::And(gates) | Self::Or(gates) | Self::Xor(gates) => {
+                gates.0.reverse(depth.map(|d| d - 1));
+                gates.1.reverse(depth.map(|d| d - 1));
+                std::mem::swap(&mut gates.0, &mut gates.1);
+            }
+            Self::Not(gate) => gate.reverse(depth.map(|d| d - 1)),
+            Self::Is(_) | Self::Literal(_) => {}
+        }
     }
 
     #[must_use]

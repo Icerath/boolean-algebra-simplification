@@ -102,7 +102,7 @@ impl<'a> Parser<'a> {
                     self.lexer.next();
                     remainder.push(self.parse_atom()?);
                 }
-                Some(Token::Ident(_) | Token::OpenParen | Token::Literal(_)) => {
+                Some(Token::Ident(_) | Token::OpenParen | Token::Literal(_) | Token::Not) => {
                     remainder.push(self.parse_atom()?);
                 }
                 _ => break,

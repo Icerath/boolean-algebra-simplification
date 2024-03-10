@@ -29,8 +29,8 @@ impl Gate {
     pub fn map(&mut self, predicate: &mut impl FnMut(&mut Self)) {
         match self {
             Self::And(gates) | Self::Or(gates) | Self::Xor(gates) => {
-                predicate(&mut gates.0);
-                predicate(&mut gates.1);
+                gates.0.map(predicate);
+                gates.1.map(predicate);
             }
             Self::Not(gate) => gate.map(predicate),
             Self::Is(_) | Self::Literal(_) => {}
@@ -42,7 +42,6 @@ impl Gate {
         if depth == Some(0) {
             return;
         }
-
         match self {
             Self::And(gates) | Self::Or(gates) | Self::Xor(gates) => {
                 gates.0.reverse(depth.map(|d| d - 1));

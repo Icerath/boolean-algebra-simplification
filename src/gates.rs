@@ -38,17 +38,12 @@ impl Gate {
         predicate(self);
     }
 
-    pub fn reverse(&mut self, depth: Option<u8>) {
-        if depth == Some(0) {
-            return;
-        }
+    pub fn reverse_top(&mut self) {
         match self {
             Self::And(gates) | Self::Or(gates) | Self::Xor(gates) => {
-                gates.0.reverse(depth.map(|d| d - 1));
-                gates.1.reverse(depth.map(|d| d - 1));
                 std::mem::swap(&mut gates.0, &mut gates.1);
             }
-            Self::Not(gate) => gate.reverse(depth.map(|d| d - 1)),
+            Self::Not(gate) => gate.reverse_top(),
             Self::Is(_) | Self::Literal(_) => {}
         }
     }

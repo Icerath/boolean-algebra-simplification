@@ -16,9 +16,9 @@ impl Gate {
     pub fn simplify(&mut self) {
         self.map(&mut |root| {
             simplify(root);
-            root.reverse(Some(1));
+            root.reverse_top();
             simplify(root);
-            root.reverse(Some(1));
+            root.reverse_top();
         });
     }
 }

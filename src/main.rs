@@ -9,12 +9,20 @@ pub use gates::*;
 
 use crate::parser::parse;
 
+#[derive(clap::Parser)]
+struct Args {
+    input: String,
+    #[arg(long, default_value = "false")]
+    truth_table: bool,
+}
+
 fn main() -> Result<(), String> {
-    let Some(input) = std::env::args().nth(1) else {
-        return Err("Expected Input".into());
-    };
-    let og_tree = parse(&input).map_err(|err| err.to_string())?;
+    let args = <Args as clap::Parser>::parse();
+    let og_tree = parse(&args.input).map_err(|err| err.to_string())?;
     let mut new_tree = og_tree.clone();
+    if args.truth_table {
+        og_tree.print_table();
+    }
     new_tree.simplify();
     println!("old = {og_tree}");
     println!("new = {new_tree}");

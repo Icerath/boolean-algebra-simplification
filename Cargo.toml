@@ -10,5 +10,6 @@ cast_possible_truncation = "allow"
 cast_lossless = "allow"
 
 [dependencies]
+clap = { version = "4.5.2", features = ["derive"] }
 logos = "0.14.0"
 thiserror = "1.0.57"

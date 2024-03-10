@@ -81,29 +81,34 @@ impl Gate {
 
     #[must_use]
     pub fn equal(&self, other: &Self) -> bool {
-        let size = self.size();
-        if size < other.size() {
+        let (lhs_size, rhs_size) = (self.size(), other.size());
+        if lhs_size < rhs_size {
             return false;
         }
-        for val in 0..2u32.pow(size) {
-            if self.compute(val) != other.compute(val) {
-                return false;
-            }
-        }
-        true
+        (0..2u32.pow(lhs_size.max(rhs_size))).all(|val| self.compute(val) == other.compute(val))
     }
 
     pub fn print_table(&self) {
         let width = self.size();
+        for _ in 0..=width + 1 {
+            print!("--");
+        }
+        println!();
+        print!("|");
         for var in self.unique_vars() {
             print!("{} ", (b'A' + var) as char);
         }
+        print!("  |");
         println!();
         for i in 0..2u32.pow(width) {
             let width = width as usize;
             let bits = format!("{i:0width$b}").chars().rev().flat_map(|c| [c, ' ']).collect::<String>();
-            println!("{bits} {}", u32::from(self.compute(i)));
+            println!("|{bits} {}|", u32::from(self.compute(i)));
         }
+        for _ in 0..=width + 1 {
+            print!("--");
+        }
+        println!();
     }
 
     #[must_use]

@@ -1,5 +1,5 @@
 [package]
-name = "justins_boolean_algebra"
+name = "boolean_algebra_simplification"
 version = "0.1.0"
 edition = "2021"
 

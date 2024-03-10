@@ -96,14 +96,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_and(&mut self) -> Result<'a, Gate> {
-        let initial = self.parse_group()?;
+        let initial = self.parse_atom()?;
         let mut remainder = vec![];
 
         loop {
             match self.peek()? {
                 Some(Token::And) => {
                     self.lexer.next();
-                    remainder.push(self.parse_group()?);
+                    remainder.push(self.parse_atom()?);
                 }
                 Some(Token::Ident(_) | Token::OpenParen | Token::Literal(_)) => {
                     remainder.push(self.parse_atom()?);
@@ -112,16 +112,6 @@ impl<'a> Parser<'a> {
             }
         }
         Ok(remainder.into_iter().fold(initial, |acc, gate| Gate::And(Box::new((acc, gate)))))
-    }
-
-    fn parse_group(&mut self) -> Result<'a, Gate> {
-        let lhs = self.parse_atom()?;
-        match self.peek()? {
-            Some(Token::Ident(_) | Token::OpenParen | Token::Literal(_)) => {
-                Ok(Gate::And(Box::new((lhs, self.parse_atom()?))))
-            }
-            Some(_) | None => Ok(lhs),
-        }
     }
 
     fn parse_atom(&mut self) -> Result<'a, Gate> {
